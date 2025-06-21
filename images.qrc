@@ -1,0 +1,32 @@
+<RCC>
+    <qresource prefix="/new/prefix1">
+        <file>images/0.png</file>
+        <file>images/1.png</file>
+        <file>images/2.png</file>
+        <file>images/3.png</file>
+        <file>images/4.png</file>
+        <file>images/5.png</file>
+        <file>images/6.png</file>
+        <file>images/7.png</file>
+        <file>images/8.png</file>
+        <file>images/9.png</file>
+        <file>images/10.png</file>
+        <file>images/11.png</file>
+        <file>images/12.png</file>
+        <file>images/13.png</file>
+        <file>images/clicked-0.png</file>
+        <file>images/clicked-1.png</file>
+        <file>images/clicked-2.png</file>
+        <file>images/clicked-3.png</file>
+        <file>images/clicked-4.png</file>
+        <file>images/clicked-5.png</file>
+        <file>images/clicked-6.png</file>
+        <file>images/clicked-7.png</file>
+        <file>images/clicked-8.png</file>
+        <file>images/clicked-9.png</file>
+        <file>images/clicked-10.png</file>
+        <file>images/clicked-11.png</file>
+        <file>images/clicked-12.png</file>
+        <file>images/clicked-13.png</file>
+    </qresource>
+</RCC>
