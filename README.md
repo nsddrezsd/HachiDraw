@@ -1,0 +1,2 @@
+# HachiDraw
+一个基于Qt实现的类ChemDraw的化学结构绘制软件
