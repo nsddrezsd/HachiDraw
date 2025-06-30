@@ -275,9 +275,9 @@ void Widget::mousePressEvent(QMouseEvent *e) {
                 update();
                 return ;
             }
-            OutputPos = QPointF(e->pos());
-            OutputText = QInputDialog::getText(this, tr("输入"), tr("请输入:"), QLineEdit::Normal, tr("C"));
             Save();
+            OutputText = QInputDialog::getText(this, tr("输入"), tr("请输入:"), QLineEdit::Normal, tr("C"));
+            OutputPos = QPointF(e->pos());
             texts.push_back({OutputPos, OutputText});
             update();
         }
@@ -1128,7 +1128,6 @@ void Widget::EraseBondForAtom(int id, Atom* other){
     if (other->bonds.size() == 0){
         for (int i=0;i<atoms.size();i++){
             if (*atoms[i] == *other){
-                //events.top().ErasedAtom.push_front(*atoms[i]);
                 EraseAtom(i);
                 break;
             }
@@ -1154,7 +1153,6 @@ void Widget::EraseBond(int id){
                     }
                 }
                 if (atoms[i]->bonds.size() == 0){
-                    //events.top().ErasedAtom.push_front(*atoms[i]);
                     EraseAtom(i);
                 }
                 else i++;
