@@ -55,14 +55,6 @@ int main(int argc, char *argv[])
     btn[8]->setIcon(QIcon(":/new/prefix1/images/8.png"));
     btn[9] = new MyButton;
     btn[9]->setIcon(QIcon(":/new/prefix1/images/9.png"));
-    // btn[10] = new MyButton;
-    // btn[10]->setIcon(QIcon(":/new/prefix1/images/10.png"));
-    // btn[11] = new MyButton;
-    // btn[11]->setIcon(QIcon(":/new/prefix1/images/11.png"));
-    // btn[12] = new MyButton;
-    // btn[12]->setIcon(QIcon(":/new/prefix1/images/12.png"));
-    // btn[13] = new MyButton;
-    // btn[13]->setIcon(QIcon(":/new/prefix1/images/13.png"));
     for (int i = 0; i < 10; ++i) {
         int row = i / 2;
         int col = i % 2;

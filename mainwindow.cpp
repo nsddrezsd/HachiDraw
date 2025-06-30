@@ -231,6 +231,13 @@ void Widget::mousePressEvent(QMouseEvent *e) {
     if (DoubleClickFlag){
         return ;
     }
+    if (MyButton::mode != 0){
+        m_isDraging = 0;
+        Draged_atoms.clear();
+        Draged_bonds.clear();
+        Draged_texts.clear();
+        update();
+    }
     if (MyButton::mode == 2 || MyButton::mode == 3 || MyButton::mode == 4){ //化学键
         if (e->button() == Qt::LeftButton) {
             setMouseTracking(false); //在拖拽过程中停止检测自由鼠标
@@ -292,7 +299,7 @@ void Widget::mousePressEvent(QMouseEvent *e) {
                     f = CalcTextDistance(e->pos());
                     if (f != -1){
                         Save();
-                        texts.erase(texts.begin() + f);
+                        EraseText(f);
                     }
                     else return ;
                 }
@@ -353,7 +360,6 @@ void Widget::mousePressEvent(QMouseEvent *e) {
             int f = CalcAtomDistance(*m_startPoint);
             if (f != -1){
                 m_startPoint = atoms[f];
-                //qDebug() << *m_startPoint;
             }
             else{
                 f = CalcBondDistance(*m_startPoint);
@@ -372,53 +378,39 @@ void Widget::mousePressEvent(QMouseEvent *e) {
 
 QVector<Atom*> Widget::calculateRingVertices(Bond* baseBond, int ringSize, bool clockwise) {
     QVector<Atom*> vertices;
-
     if (!baseBond || ringSize < 3) return vertices;
-
     // 获取基准键的两个端点
     Atom* atomA = baseBond->atom1;
     Atom* atomB = baseBond->atom2;
-
     // 计算基准边的向量和长度
     QPointF vecAB(atomB->x() - atomA->x(), atomB->y() - atomA->y());
     double bondLength = sqrt(vecAB.x() * vecAB.x() + vecAB.y() * vecAB.y());
-
     // 计算中点
     QPointF midPoint(
         (atomA->x() + atomB->x()) / 2.0,
         (atomA->y() + atomB->y()) / 2.0
         );
-
     // 计算单位向量和垂直向量
     QPointF unitVec = vecAB / bondLength;
     QPointF perpVec(-unitVec.y(), unitVec.x());
-
     // 根据顺时针/逆时针调整方向
     if (!clockwise) {
         perpVec = -perpVec;
     }
-
     // 计算正多边形的几何参数
     double radius = bondLength / (2 * sin(M_PI / ringSize));
     double height = radius * cos(M_PI / ringSize);
-
     // 计算圆心位置（从中点垂直偏移）
     QPointF circleCenter = midPoint + perpVec * height;
-
     // 添加第二个顶点（基准边的B点）
     vertices.append(atomB);
-
     // 添加第一个顶点（基准边的A点）
     vertices.append(atomA);
-
-
     // 计算从圆心指向A点的向量，并计算其角度
     QPointF vecA = QPointF(atomA->x() - circleCenter.x(), atomA->y() - circleCenter.y());
     double startAngle = atan2(vecA.y(), vecA.x());
-
     // 计算角度步长（弧度）
     double angleStep = (clockwise ? -1 : 1) * (2 * M_PI / ringSize);
-
     // 生成其他顶点（跳过已添加的两个顶点）
     for (int i = 2; i < ringSize; i++) {
         double angle = startAngle + angleStep * (i - 1);
@@ -426,17 +418,14 @@ QVector<Atom*> Widget::calculateRingVertices(Bond* baseBond, int ringSize, bool 
             circleCenter.x() + radius * cos(angle),
             circleCenter.y() + radius * sin(angle)
             );
-
         // 边界检查
         if (newPos.x() < 0 || newPos.y() < 0 ||
             newPos.x() > this->width() || newPos.y() > this->height()) {
             QMessageBox::warning(this, "Out of Bound", "Vertex out of canvas");
             return QVector<Atom*>();
         }
-
         vertices.append(new Atom(newPos));
     }
-
     return vertices;
 }
 
@@ -528,38 +517,39 @@ void Widget::mouseMoveEvent(QMouseEvent *e) {
         }
     }
     else if (MyButton::mode == 0){
-        Atom tmp = Atom(e->pos());
-        if (m_isDragingAtom){
-            Draged_Atom->setX(Draged_Atom->x() + tmp.x() - m_startPoint->x());
-            Draged_Atom->setY(Draged_Atom->y() + tmp.y() - m_startPoint->y());
-        }
-        else if (m_isDragingBond){
-            Atom* a = Draged_Bond->atom1, *b = Draged_Bond->atom2;
-            a->setX(a->x() + tmp.x() - m_startPoint->x());
-            a->setY(a->y() + tmp.y() - m_startPoint->y());
-            b->setX(b->x() + tmp.x() - m_startPoint->x());
-            b->setY(b->y() + tmp.y() - m_startPoint->y());
-        }
-        else if (m_isDragingText){
-            texts[Draged_TextId].first.setX(texts[Draged_TextId].first.x() + tmp.x() - m_startPoint->x());
-            texts[Draged_TextId].first.setY(texts[Draged_TextId].first.y() + tmp.y() - m_startPoint->y());
-        }
-        else if (m_isDraging == 1){
-            m_endPoint = new Atom(tmp);
-            MarkItems();
+        if (e->buttons() & Qt::LeftButton){
+            Atom tmp = Atom(e->pos());
+            if (m_isDragingAtom){
+                Draged_Atom->setX(Draged_Atom->x() + tmp.x() - m_startPoint->x());
+                Draged_Atom->setY(Draged_Atom->y() + tmp.y() - m_startPoint->y());
+            }
+            else if (m_isDragingBond){
+                Atom* a = Draged_Bond->atom1, *b = Draged_Bond->atom2;
+                a->setX(a->x() + tmp.x() - m_startPoint->x());
+                a->setY(a->y() + tmp.y() - m_startPoint->y());
+                b->setX(b->x() + tmp.x() - m_startPoint->x());
+                b->setY(b->y() + tmp.y() - m_startPoint->y());
+            }
+            else if (m_isDragingText){
+                texts[Draged_TextId].first.setX(texts[Draged_TextId].first.x() + tmp.x() - m_startPoint->x());
+                texts[Draged_TextId].first.setY(texts[Draged_TextId].first.y() + tmp.y() - m_startPoint->y());
+            }
+            else if (m_isDraging == 1){
+                m_endPoint = new Atom(tmp);
+                MarkItems();
+                ChangeRect();
+                update();
+                return ;
+            }
+            else if (m_isDraging == 2){
+                ChangeItems(tmp);
+                update();
+                return ;
+            }
             update();
-            return ;
+            m_startPoint->setX(tmp.x());
+            m_startPoint->setY(tmp.y());
         }
-        else if (m_isDraging == 2){
-            ChangeItems(tmp);
-            update();
-            return ;
-        }
-        //qDebug() << "Dragging...";
-        //qDebug() << Draged_Atom->element;
-        update();
-        m_startPoint->setX(tmp.x());
-        m_startPoint->setY(tmp.y());
     }
     else if (MyButton::mode >= 6 && MyButton::mode <= 13){
         if (m_isDrawingRing) {
@@ -663,13 +653,14 @@ void Widget::mouseReleaseEvent(QMouseEvent *e) {
                 update();
                 return ;
             }
-            MarkItems(); // 实际上是为了更新新的框坐标
+            ModifyRect(Draged_atoms, Draged_texts); // 实际上是为了更新新的框坐标
             if (!DragingUseful && !BondRecords.empty()){
                 BondRecords.pop();
                 AtomRecords.pop();
                 TextRecords.pop();
             }
             m_isDraging = 2;
+            update();
             return ;
         }
         setMouseTracking(true);
@@ -736,6 +727,17 @@ void Widget::keyPressEvent(QKeyEvent* e){
     else if (e->modifiers() == Qt::ControlModifier && e->key() == Qt::Key_O){
         openfile();
     }
+    else if (e->key() == Qt::Key_Delete){
+        DeleteItems();
+        m_isDraging = 0;
+        update();
+    }
+    else if (e->modifiers() == Qt::ControlModifier && e->key() == Qt::Key_C && MyButton::mode == 0) {
+        Copy();
+    }
+    else if (e->modifiers() == Qt::ControlModifier && e->key() == Qt::Key_V) {
+        Paste();
+    }
     else{
         QWidget::keyPressEvent(e);
     }
@@ -766,20 +768,17 @@ void Widget::undo(){
     if (AtomRecords.empty()) return ;
     QVector<Atom> tmpAtom = AtomRecords.top(); AtomRecords.pop();
     QVector<Bond> tmpBond = BondRecords.top(); BondRecords.pop();
-    // qDebug() << tmpBond;
     texts = TextRecords.top(); TextRecords.pop();
     atoms.clear();
     bonds.clear();
     for (int i=0;i<tmpAtom.size();i++){
         Atom* tmp = new Atom(tmpAtom[i]);
         atoms.push_back(tmp);
-        // qDebug() << *tmp;
     }
     for (int i=0;i<tmpBond.size();i++){
         Bond tmp = tmpBond[i];
         Atom tmp1 = Atom(tmpBond[i].p1());
         Atom tmp2 = Atom(tmpBond[i].p2());
-        // qDebug() << tmp1 << " " << tmp2;
         int f1 = CalcAtomDistance(tmp1), f2 = CalcAtomDistance(tmp2);
         if (f1 != -1){
             tmp.atom1 = atoms[f1];
@@ -787,8 +786,6 @@ void Widget::undo(){
         if (f2 != -1){
             tmp.atom2 = atoms[f2];
         }
-        // qDebug() << *tmp.atom1 << " " << *tmp.atom2;
-        // qDebug() << f1 << " " << f2;
         atoms[f1]->bonds.push_back(tmp);
         atoms[f2]->bonds.push_back(tmp);
         bonds.push_back(tmp);
@@ -859,7 +856,7 @@ void Widget::paintEvent(QPaintEvent *e) {
     for (int i=0;i<texts.size();i++){
         QRect textRect = fm.boundingRect(texts[i].second);
         QRect drawRect(texts[i].first.x() - textRect.width()/2,
-                        texts[i].first.y() - textRect.height()/2,
+                       texts[i].first.y() - textRect.height()/2,
                        textRect.width(),
                        textRect.height());
         int f = 0;
@@ -882,10 +879,12 @@ void Widget::paintEvent(QPaintEvent *e) {
         pen.setColor(Qt::black);
         pen.setWidth(1);
         painter.setPen(pen);
-        painter.drawLine(QLineF(*m_startPoint, QPointF(m_startPoint->x(), m_endPoint->y())));
-        painter.drawLine(QLineF(*m_startPoint, QPointF(m_endPoint->x(), m_startPoint->y())));
-        painter.drawLine(QLineF(*m_endPoint, QPointF(m_startPoint->x(), m_endPoint->y())));
-        painter.drawLine(QLineF(*m_endPoint, QPointF(m_endPoint->x(), m_startPoint->y())));
+        QPointF tmp1 = rect.topLeft();
+        QPointF tmp2 = rect.bottomRight();
+        painter.drawLine(QLineF(tmp1, QPointF(tmp1.x(), tmp2.y())));
+        painter.drawLine(QLineF(tmp1, QPointF(tmp2.x(), tmp1.y())));
+        painter.drawLine(QLineF(tmp2, QPointF(tmp1.x(), tmp2.y())));
+        painter.drawLine(QLineF(tmp2, QPointF(tmp2.x(), tmp1.y())));
     }
     //标题
     QString title = "HachiDraw - [" + File;
@@ -894,10 +893,7 @@ void Widget::paintEvent(QPaintEvent *e) {
     this->setWindowTitle(title);
 }
 
-void Widget::MarkItems(){
-    Draged_atoms.clear();
-    Draged_bonds.clear();
-    Draged_texts.clear();
+void Widget::ChangeRect(){
     if (m_startPoint->x() < m_endPoint->x() && m_startPoint->y() < m_endPoint->y()){
         rect = QRectF(*m_startPoint, *m_endPoint);
     }
@@ -910,6 +906,37 @@ void Widget::MarkItems(){
     else{
         rect = QRectF(*m_endPoint, *m_startPoint);
     }
+}
+
+void Widget::ModifyRect(QVector<Atom*> _atoms, QVector<int> _texts){
+    // 计算新粘贴内容的边界
+    QPointF minPos(INT_MAX, INT_MAX);
+    QPointF maxPos(INT_MIN, INT_MIN);
+    // 检查原子位置
+    for (Atom* atom : _atoms) {
+        minPos.setX(qMin(minPos.x(), atom->x()));
+        minPos.setY(qMin(minPos.y(), atom->y()));
+        maxPos.setX(qMax(maxPos.x(), atom->x()));
+        maxPos.setY(qMax(maxPos.y(), atom->y()));
+    }
+    // 检查文本位置
+    for (int i = 0; i < _texts.size(); i ++) {
+        minPos.setX(qMin(minPos.x(), texts[_texts[i]].first.x()));
+        minPos.setY(qMin(minPos.y(), texts[_texts[i]].first.y()));
+        maxPos.setX(qMax(maxPos.x(), texts[_texts[i]].first.x()));
+        maxPos.setY(qMax(maxPos.y(), texts[_texts[i]].first.y()));
+    }
+    // 设置选择框
+    m_startPoint = new Atom(minPos - QPointF(20, 20)); // 添加一些边距
+    m_endPoint = new Atom(maxPos + QPointF(20, 20));
+    ChangeRect(); // 更新选择的内容
+}
+
+void Widget::MarkItems(){
+    Draged_atoms.clear();
+    Draged_bonds.clear();
+    Draged_texts.clear();
+    ChangeRect();
     for (int i=0;i<atoms.size();i++){
         if (rect.contains(*atoms[i])){
             Draged_atoms.push_back(atoms[i]);
@@ -928,16 +955,59 @@ void Widget::MarkItems(){
     return ;
 }
 
+void Widget::DeleteItems(){
+    QVector<Atom> tmp1;
+    QVector<Bond> tmp2;
+    QVector<QPair<QPointF, QString> > tmp3;
+    for (int i=0;i<Draged_atoms.size();i++){
+        tmp1.push_back(*Draged_atoms[i]);
+    }
+    for (int i=0;i<Draged_bonds.size();i++){
+        tmp2.push_back(*Draged_bonds[i]);
+    }
+    for (int i=0;i<Draged_texts.size();i++){
+        tmp3.push_back(texts[Draged_texts[i]]);
+    }
+    for (int i=0;i<tmp1.size();i++){
+        for (int j=0;j<atoms.size();j++){
+            if (tmp1[i] == *atoms[j]){
+                EraseAtom(j);
+                break;
+            }
+        }
+    }
+    for (int i=0;i<tmp2.size();i++){
+        for (int j=0;j<bonds.size();j++){
+            if (tmp2[i] == bonds[j]){
+                EraseBond(j);
+                break;
+            }
+        }
+    }
+    for (int i=0;i<tmp3.size();i++){
+        for (int j=0;j<texts.size();j++){
+            if (tmp3[i] == texts[j]){
+                EraseText(j);
+                break;
+            }
+        }
+    }
+    rect = QRectF(QPointF(0, 0), QPointF(0, 0));
+    return ;
+}
+
 void Widget::ChangeItems(Atom endPoint){
     DragingUseful = 1;
     Atom delta = endPoint - DragstartPoint;
     DragstartPoint = endPoint;
     *m_startPoint += delta;
     *m_endPoint += delta;
+    ChangeRect();
     for (int i=0;i<Draged_atoms.size();i++){
         *Draged_atoms[i] += delta;
     }
     //想想看，为什么bond不需要加delta呢？
+    //宝宝 我觉得是因为bond是链接原子地址，不需要记录位置
     for (int i=0;i<Draged_texts.size();i++){
         texts[Draged_texts[i]].first += delta;
     }
@@ -1094,6 +1164,10 @@ void Widget::EraseBond(int id){
     }
 }
 
+void Widget::EraseText(int id){
+    texts.erase(texts.begin() + id);
+}
+
 void Widget::savefile(){
     if (FilePath == ""){ //没有保存位置的
         FilePath = QFileDialog::getSaveFileName(this, "保存文件", "C:\\Users\\PC\\Desktop\\untitled", "项目文件(*.hachi)");
@@ -1138,7 +1212,7 @@ void Widget::openfile(){
             "保存对此文件所做的更改？",
             "要把改动保存到" + File + "中吗？",
             QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel
-        );
+            );
         if (reply == QMessageBox::Yes) {
             savefile();
         }
@@ -1190,6 +1264,135 @@ void Widget::openfile(){
     }
     else if (filepath != ""){
         QMessageBox::critical(this, tr("错误"), tr("文件打开错误!"));
+    }
+}
+
+void Widget::Copy(){
+    // 复制功能
+    if (!Draged_atoms.empty() || !Draged_bonds.empty() || !Draged_texts.empty()) {
+        // 清空之前的复制内容
+        qDeleteAll(copiedAtoms);
+        copiedAtoms.clear();
+        copiedBonds.clear();
+        copiedTexts.clear();
+        // 保存复制位置（框选的左上角）
+        copyPosition = rect.topLeft();
+        // 复制选中的原子
+        for (Atom* atom : Draged_atoms) {
+            copiedAtoms.append(new Atom(*atom));
+        }
+        // 复制选中的键
+        for (Bond* bond : Draged_bonds) {
+            // 需要找到对应的复制后的原子
+            Atom* newAtom1 = nullptr;
+            Atom* newAtom2 = nullptr;
+            for (int i = 0; i < Draged_atoms.size(); i++) {
+                if (*Draged_atoms[i] == *bond->atom1) {
+                    newAtom1 = copiedAtoms[i];
+                }
+                if (*Draged_atoms[i] == *bond->atom2) {
+                    newAtom2 = copiedAtoms[i];
+                }
+            }
+            if (newAtom1 && newAtom2) {
+                copiedBonds.append(Bond(newAtom1, newAtom2, bond->level));
+            }
+        }
+        // 复制选中的文本
+        for (int textId : Draged_texts) {
+            copiedTexts.append(texts[textId]);
+        }
+        // 清空已框选数组
+        Draged_atoms.clear();
+        Draged_bonds.clear();
+        Draged_texts.clear();
+        update();
+    }
+}
+
+void Widget::Paste(){
+    // 粘贴功能
+    if (!copiedAtoms.empty() || !copiedTexts.empty()) {
+        // 计算粘贴位置（原位置右下角固定距离）
+        const QPointF pasteOffset(30, 30);  // 固定偏移量
+        QPointF pastePosition = copyPosition + pasteOffset;
+        // 检查是否会超出画板
+        bool outOfBound = false;
+        QRectF widgetRect(0, 0, width(), height());
+        // 检查所有原子和文本是否会超出边界
+        for (Atom* atom : copiedAtoms) {
+            QPointF newPos = pastePosition + (*atom - copyPosition);
+            if (!widgetRect.contains(newPos)) {
+                outOfBound = true;
+                break;
+            }
+        }
+        for (const auto& text : copiedTexts) {
+            QPointF newPos = pastePosition + (text.first - copyPosition);
+            if (!widgetRect.contains(newPos)) {
+                outOfBound = true;
+                break;
+            }
+        }
+        if (outOfBound) {
+            QMessageBox::warning(this, "警告", "粘贴内容将超出画板边界");
+            return;
+        }
+        // 执行粘贴操作
+        Save();
+        // 计算偏移量
+        QPointF offset = pastePosition - copyPosition;
+        // 粘贴原子
+        QVector<Atom*> newAtoms;
+        for (Atom* atom : copiedAtoms) {
+            Atom* newAtom = new Atom(*atom + offset);
+            newAtoms.append(newAtom);
+            atoms.append(newAtom);
+        }
+        // 粘贴键
+        for (const Bond& bond : copiedBonds) {
+            // 找到对应的新原子
+            Atom* newAtom1 = nullptr;
+            Atom* newAtom2 = nullptr;
+            for (int i = 0; i < copiedAtoms.size(); i++) {
+                if (*copiedAtoms[i] == *bond.atom1) {
+                    newAtom1 = newAtoms[i];
+                }
+                if (*copiedAtoms[i] == *bond.atom2) {
+                    newAtom2 = newAtoms[i];
+                }
+            }
+            if (newAtom1 && newAtom2) {
+                Bond newBond(newAtom1, newAtom2, bond.level);
+                bonds.append(newBond);
+                newAtom1->bonds.append(newBond);
+                newAtom2->bonds.append(newBond);
+            }
+        }
+        // 粘贴文本
+        for (const auto& text : copiedTexts) {
+            QPair<QPointF, QString> newText(text.first + offset, text.second);
+            texts.append(newText);
+        }
+        // 将框选部分替换为刚粘贴的部分
+        Draged_atoms = newAtoms;
+        Draged_bonds.clear();
+        for (int i = bonds.size() - copiedBonds.size(); i < bonds.size(); i++) {
+            Draged_bonds.append(&bonds[i]);
+        }
+        Draged_texts.clear();
+        for (int i = texts.size() - copiedTexts.size(); i < texts.size(); i++) {
+            Draged_texts.append(i);
+        }
+        if (!newAtoms.empty() || !copiedTexts.empty()) {
+            ModifyRect(newAtoms, Draged_texts);
+            // 更新粘贴位置，以便下次粘贴时使用
+            copyPosition = pastePosition;
+        }
+        //int tmp = m_isDraging;
+        m_isDraging = 2;
+        update();
+        //m_isDraging = tmp;
     }
 }
 

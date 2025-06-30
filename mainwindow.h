@@ -116,6 +116,10 @@ public:
     bool saved = 1; //是否保存当前所有更改
     QString File = "Untitled";
     QString FilePath = "";
+    QVector<Atom*> copiedAtoms;
+    QVector<Bond> copiedBonds;
+    QVector<QPair<QPointF, QString>> copiedTexts;
+    QPointF copyPosition;  // 保存复制时的位置
 
     Widget(QWidget *parent = nullptr);
     ~Widget();
@@ -123,7 +127,7 @@ public:
     void mouseMoveEvent(QMouseEvent* e);
     void mouseReleaseEvent(QMouseEvent* e);
     void mouseDoubleClickEvent(QMouseEvent* e);
-    void keyPressEvent(QKeyEvent* e); //按下键盘Ctrl + Z
+    void keyPressEvent(QKeyEvent* e);
     void closeEvent(QCloseEvent* e);
     void Save(); //保存目前历史状态
     void undo(); //Ctrl+Z后的撤销
@@ -137,10 +141,16 @@ public:
     void EraseAtom(int id); //删去原子
     void EraseBondForAtom(int id, Atom* other); //在删去原子的过程中删去键
     void EraseBond(int id); //删去一根键
-    void MarkItems();
+    void EraseText(int id); //删去文本框
+    void MarkItems(); //标记框选原子
+    void DeleteItems(); //Delete快捷键删除框选原子
     void ChangeItems(Atom endPoint);
     void savefile(); //保存文件
     void openfile(); //打开文件
+    void Copy(); //复制
+    void Paste(); //粘贴
+    void ChangeRect();
+    void ModifyRect(QVector<Atom*> _atoms, QVector<int> _texts); //自适应调整框选
     QVector<Atom*> calculateRingVertices(Bond* baseBond, int ringSize, bool clockwise);
 };
 
